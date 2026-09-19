@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registration - Attendance Portal</title>
+    <!-- Bootstrap 5 CSS & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f1f5f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+        .register-card {
+            border-radius: 1.25rem;
+            border: none;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+            background: #ffffff;
+        }
+        .camera-viewport {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            aspect-ratio: 4 / 3;
+            margin: 0 auto;
+            background: #0f172a;
+            border-radius: 1rem;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        video, #previewImg {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        video {
+            transform: scaleX(-1); /* Mirror webcam */
+        }
+        .face-oval {
+            position: absolute;
+            width: 200px;
+            height: 250px;
+            border: 2px dashed rgba(56, 189, 248, 0.7);
+            border-radius: 50% 50% 45% 45%;
+            pointer-events: none;
+            display: none;
+        }
+        .troubleshoot-box {
+            background-color: #fff8e6;
+            border: 1px solid #ffe08a;
+            border-radius: 1rem;
+            padding: 1.25rem;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Admin Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/admin">
+                <i class="bi bi-shield-check text-primary fs-4"></i> Admin Management
+            </a>
+            <div class="ms-auto">
+                <a href="/admin" class="btn btn-outline-light btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+
+                <div class="card register-card p-4 p-md-5">
+                    
+                    <div class="text-center mb-4">
+                        <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill fw-semibold mb-2">
+                            <i class="bi bi-person-plus-fill me-1"></i> Face Enrollment
+                        </span>
+                        <h2 class="fw-bold text-dark">Register Student Face</h2>
+                        <p class="text-muted small">Capture a single high-quality reference portrait using webcam or photo upload</p>
+                    </div>
+
+                    <!-- Registration Form -->
+                    <div class="mb-4">
+                        <label for="studentName" class="form-label fw-semibold text-dark">Full Student Name <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                            <input type="text" class="form-control form-control-lg fs-6" id="studentName" placeholder="e.g. Alen I Scaria" required autocomplete="off">
+                        </div>
+                        <div class="form-text text-muted">The student's photo will be saved as <code>dataset/Firstname_Lastname.jpg</code></div>
+                    </div>
+
+                    <!-- Camera Viewport -->
+                    <div class="camera-viewport mb-3" id="cameraViewport">
+                        <video id="webcam" autoplay playsinline muted></video>
+                        <img id="previewImg" style="display: none;" alt="Captured preview">
+                        <div class="face-oval" id="faceOval"></div>
+                        
+                        <div id="cameraInactiveOverlay" class="position-absolute text-center text-secondary p-3">
+                            <i class="bi bi-camera-video-off fs-1 d-block mb-2"></i>
+                            <span class="fw-medium">Webcam inactive</span>
+                            <div class="small">Click "Start Camera" or "Upload Image" below</div>
+                        </div>
+                    </div>
+
+                    <!-- Hidden Elements -->
+                    <canvas id="regCanvas" style="display: none;"></canvas>
+                    <input type="file" id="fileUploadInput" accept="image/*" style="display: none;">
+
+                    <!-- Control Buttons -->
+                    <div class="d-flex flex-wrap justify-content-center gap-3 mb-4">
+                        <button id="startCamBtn" class="btn btn-outline-primary rounded-pill px-4 fw-semibold">
+                            <i class="bi bi-camera-video me-1"></i> Start Camera
+                        </button>
+                        <button id="uploadImgBtn" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold">
+                            <i class="bi bi-upload me-1"></i> Upload Image
+                        </button>
+                        <button id="captureBtn" class="btn btn-primary rounded-pill px-4 fw-semibold" style="display: none;">
+                            <i class="bi bi-camera me-1"></i> Capture Photo
+                        </button>
+                        <button id="retakeBtn" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" style="display: none;">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Retake / Reset
+                        </button>
+                        <button id="submitBtn" class="btn btn-success rounded-pill px-4 fw-semibold" style="display: none;">
+                            <i class="bi bi-check2-circle me-1"></i> Save &amp; Register
+                        </button>
+                    </div>
+
+                    <!-- Validation / Status Notification Box -->
+                    <div id="statusAlert" class="alert d-none rounded-3 py-3 mb-3" role="alert">
+                        <div class="d-flex align-items-center gap-2">
+                            <i id="statusIcon" class="bi fs-5"></i>
+                            <div>
+                                <strong id="statusTitle"></strong>
+                                <div id="statusText" class="small"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Troubleshooting Box (Revealed on camera issues) -->
+                    <div id="troubleshootGuide" class="troubleshoot-box mb-3" style="display: none;">
+                        <h6 class="fw-bold text-dark d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-exclamation-octagon-fill text-warning fs-5"></i> How to Fix Camera Access:
+                        </h6>
+                        <ol class="small text-secondary mb-0 ps-3">
+                            <li class="mb-1">
+                                <strong>Check URL:</strong> Make sure you are visiting <code>http://localhost:5000/register</code> or <code>http://127.0.0.1:5000/register</code>.
+                            </li>
+                            <li class="mb-1">
+                                <strong>Browser Permission:</strong> Click the <strong>tune/lock icon</strong> in the browser address bar (next to the URL) &rarr; set <strong>Camera</strong> to <strong>Allow</strong> &rarr; Refresh page (F5).
+                            </li>
+                            <li class="mb-1">
+                                <strong>Windows Settings:</strong> Open <em>Windows Settings &rarr; Privacy &amp; security &rarr; Camera</em> &rarr; Ensure <strong>"Camera access"</strong> and <strong>"Let desktop apps access your camera"</strong> are turned <strong>ON</strong>.
+                            </li>
+                            <li>
+                                <strong>Quick Workaround:</strong> Click <strong>"Upload Image"</strong> to enroll student face images directly from your computer!
+                            </li>
+                        </ol>
+                    </div>
+
+                    <!-- Requirements Guide -->
+                    <div class="bg-light rounded-3 p-3 text-secondary small border">
+                        <div class="fw-bold text-dark mb-1"><i class="bi bi-shield-check text-success me-1"></i> Registration Requirements:</div>
+                        <ul class="mb-0 ps-3">
+                            <li>Exactly <strong>ONE</strong> face must be visible in the camera frame.</li>
+                            <li>Ensure good ambient lighting and avoid dark shadows or glare.</li>
+                            <li>Face forward without sunglasses or masks covering features.</li>
+                        </ul>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Client-side Registration Script -->
+    <script>
+        const video = document.getElementById('webcam');
+        const previewImg = document.getElementById('previewImg');
+        const canvas = document.getElementById('regCanvas');
+        const studentNameInput = document.getElementById('studentName');
+        const faceOval = document.getElementById('faceOval');
+        const cameraInactiveOverlay = document.getElementById('cameraInactiveOverlay');
+        const troubleshootGuide = document.getElementById('troubleshootGuide');
+
+        const startCamBtn = document.getElementById('startCamBtn');
+        const uploadImgBtn = document.getElementById('uploadImgBtn');
+        const fileUploadInput = document.getElementById('fileUploadInput');
+        const captureBtn = document.getElementById('captureBtn');
+        const retakeBtn = document.getElementById('retakeBtn');
+        const submitBtn = document.getElementById('submitBtn');
+
+        const statusAlert = document.getElementById('statusAlert');
+        const statusIcon = document.getElementById('statusIcon');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusText = document.getElementById('statusText');
+
+        let mediaStream = null;
+        let capturedBase64 = null;
+
+        function showAlert(type, title, text) {
+            statusAlert.className = `alert alert-${type} rounded-3 py-3 mb-3`;
+            statusAlert.classList.remove('d-none');
+            statusTitle.textContent = title;
+            statusText.textContent = text;
+            
+            if (type === 'success') {
+                statusIcon.className = 'bi bi-check-circle-fill text-success fs-5';
+            } else if (type === 'danger') {
+                statusIcon.className = 'bi bi-x-circle-fill text-danger fs-5';
+            } else if (type === 'warning') {
+                statusIcon.className = 'bi bi-exclamation-triangle-fill text-warning fs-5';
+            } else {
+                statusIcon.className = 'bi bi-info-circle-fill text-info fs-5';
+            }
+        }
+
+        function hideAlert() {
+            statusAlert.classList.add('d-none');
+        }
+
+        // 1. Activate Camera with fallbacks
+        async function startCamera() {
+            hideAlert();
+            troubleshootGuide.style.display = 'none';
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                troubleshootGuide.style.display = 'block';
+                showAlert('danger', 'Insecure Context Error', 'Webcam requires HTTPS or http://localhost:5000. Please access via localhost.');
+                return;
+            }
+
+            try {
+                // Tier 1: ideal resolution
+                try {
+                    mediaStream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+                        audio: false
+                    });
+                } catch (e1) {
+                    console.warn("Retrying with standard resolution...", e1);
+                    try {
+                        mediaStream = await navigator.mediaDevices.getUserMedia({
+                            video: { width: { ideal: 640 }, height: { ideal: 480 } },
+                            audio: false
+                        });
+                    } catch (e2) {
+                        mediaStream = await navigator.mediaDevices.getUserMedia({
+                            video: true,
+                            audio: false
+                        });
+                    }
+                }
+
+                video.srcObject = mediaStream;
+                await video.play();
+
+                cameraInactiveOverlay.style.display = 'none';
+                video.style.display = 'block';
+                previewImg.style.display = 'none';
+                faceOval.style.display = 'block';
+
+                startCamBtn.style.display = 'none';
+                uploadImgBtn.style.display = 'none';
+                captureBtn.style.display = 'inline-block';
+                retakeBtn.style.display = 'none';
+                submitBtn.style.display = 'none';
+            } catch (err) {
+                console.error("Camera access error:", err);
+                troubleshootGuide.style.display = 'block';
+
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    showAlert('danger', 'Camera Access Denied', 'Browser or Windows camera permission was blocked. Check the instructions below.');
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    showAlert('danger', 'Webcam In Use', 'Another app is currently using your webcam. Please close it.');
+                } else {
+                    showAlert('danger', 'Camera Error', `${err.name}: ${err.message}. You can also use "Upload Image" instead.`);
+                }
+            }
+        }
+
+        // Upload image alternative
+        uploadImgBtn.addEventListener('click', () => {
+            fileUploadInput.click();
+        });
+
+        fileUploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                capturedBase64 = event.target.result;
+                previewImg.src = capturedBase64;
+                previewImg.style.display = 'block';
+                video.style.display = 'none';
+                faceOval.style.display = 'none';
+                cameraInactiveOverlay.style.display = 'none';
+
+                startCamBtn.style.display = 'none';
+                uploadImgBtn.style.display = 'none';
+                captureBtn.style.display = 'none';
+                retakeBtn.style.display = 'inline-block';
+                submitBtn.style.display = 'inline-block';
+
+                showAlert('info', 'Photo Loaded', 'Photo loaded successfully. Enter student name and click "Save & Register".');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 2. Capture Single Frame
+        function captureFrame() {
+            if (!mediaStream) return;
+
+            const name = studentNameInput.value.trim();
+            if (!name) {
+                showAlert('warning', 'Name Required', 'Please enter the student\'s name before capturing the photo.');
+                studentNameInput.focus();
+                return;
+            }
+
+            hideAlert();
+
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            capturedBase64 = canvas.toDataURL('image/jpeg', 0.95);
+
+            previewImg.src = capturedBase64;
+            previewImg.style.display = 'block';
+            video.style.display = 'none';
+            faceOval.style.display = 'none';
+
+            captureBtn.style.display = 'none';
+            retakeBtn.style.display = 'inline-block';
+            submitBtn.style.display = 'inline-block';
+        }
+
+        // 3. Retake Photo
+        function retakePhoto() {
+            hideAlert();
+            capturedBase64 = null;
+            previewImg.style.display = 'none';
+            fileUploadInput.value = '';
+
+            if (mediaStream) {
+                video.style.display = 'block';
+                faceOval.style.display = 'block';
+                captureBtn.style.display = 'inline-block';
+                retakeBtn.style.display = 'none';
+                submitBtn.style.display = 'none';
+            } else {
+                cameraInactiveOverlay.style.display = 'block';
+                startCamBtn.style.display = 'inline-block';
+                uploadImgBtn.style.display = 'inline-block';
+                retakeBtn.style.display = 'none';
+                submitBtn.style.display = 'none';
+            }
+        }
+
+        // 4. Submit Registration to Flask
+        async function submitRegistration() {
+            const name = studentNameInput.value.trim();
+            if (!name) {
+                showAlert('warning', 'Name Missing', 'Please enter student name.');
+                studentNameInput.focus();
+                return;
+            }
+
+            if (!capturedBase64) {
+                showAlert('warning', 'Photo Missing', 'Please capture or upload a photo first.');
+                return;
+            }
+
+            showAlert('info', 'Validating Face...', 'Extracting face features and validating single-person presence...');
+            submitBtn.disabled = true;
+            retakeBtn.disabled = true;
+
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        image: capturedBase64
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showAlert('success', 'Registration Successful!', `Student "${data.name}" has been registered. Reference saved as ${data.filename}.`);
+                    
+                    studentNameInput.value = '';
+                    capturedBase64 = null;
+                    submitBtn.style.display = 'none';
+                    retakeBtn.style.display = 'none';
+
+                    if (mediaStream) {
+                        captureBtn.style.display = 'inline-block';
+                        previewImg.style.display = 'none';
+                        video.style.display = 'block';
+                        faceOval.style.display = 'block';
+                    } else {
+                        previewImg.style.display = 'none';
+                        cameraInactiveOverlay.style.display = 'block';
+                        startCamBtn.style.display = 'inline-block';
+                        uploadImgBtn.style.display = 'inline-block';
+                    }
+                } else {
+                    showAlert('danger', 'Registration Rejected', data.message || 'Face validation failed.');
+                }
+            } catch (err) {
+                console.error("Submission error:", err);
+                showAlert('danger', 'Network Error', 'Could not communicate with the server. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                retakeBtn.disabled = false;
+            }
+        }
+
+        startCamBtn.addEventListener('click', startCamera);
+        captureBtn.addEventListener('click', captureFrame);
+        retakeBtn.addEventListener('click', retakePhoto);
+        submitBtn.addEventListener('click', submitRegistration);
+
+        window.addEventListener('beforeunload', () => {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>

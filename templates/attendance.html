@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Records - Attendance Portal</title>
+    <!-- Bootstrap 5 CSS & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .table-card {
+            border-radius: 1.25rem;
+            border: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            background: #ffffff;
+            overflow: hidden;
+        }
+        .search-input {
+            border-radius: 50rem;
+            padding-left: 2.5rem;
+        }
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Admin Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/admin">
+                <i class="bi bi-shield-check text-primary fs-4"></i> Admin Management
+            </a>
+            <div class="ms-auto d-flex gap-2">
+                <a href="/admin" class="btn btn-outline-light btn-sm rounded-pill px-3">
+                    <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                </a>
+                <a href="/admin/logout" class="btn btn-danger btn-sm rounded-pill px-3">
+                    <i class="bi bi-box-arrow-right me-1"></i> Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+
+        <!-- Header Title & Metrics -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-2 border-bottom">
+            <div>
+                <h2 class="fw-bold text-dark mb-1">Attendance Log Records</h2>
+                <p class="text-secondary small mb-0">Complete historical attendance log sorted newest first</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary rounded-pill px-3 btn-sm" onclick="window.print()">
+                    <i class="bi bi-printer me-1"></i> Print
+                </button>
+                <button class="btn btn-outline-primary rounded-pill px-3 btn-sm" onclick="exportTableToCSV('attendance_export.csv')">
+                    <i class="bi bi-download me-1"></i> Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Metric Badges Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-md-3">
+                <div class="card p-3 bg-white border rounded-3">
+                    <div class="text-muted small">Total Recorded Entries</div>
+                    <div class="fs-4 fw-bold text-primary">{{ total_count }}</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <div class="card p-3 bg-white border rounded-3">
+                    <div class="text-muted small">Today's Check-ins</div>
+                    <div class="fs-4 fw-bold text-success">{{ today_count }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Container Card -->
+        <div class="card table-card p-4">
+            
+            <!-- Live Search / Filter Input -->
+            <div class="row justify-content-between align-items-center mb-3 g-2">
+                <div class="col-md-5">
+                    <div class="position-relative">
+                        <i class="bi bi-search search-icon"></i>
+                        <input type="text" id="tableSearchInput" class="form-control search-input" placeholder="Search by student name or date...">
+                    </div>
+                </div>
+                <div class="col-md-auto text-muted small">
+                    <span id="filteredRowCount">{{ records|length }}</span> record(s) found
+                </div>
+            </div>
+
+            <!-- Attendance Table -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="attendanceTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Student Name</th>
+                            <th scope="col">Date</th>
+                            <th scope="col">Time</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTableBody">
+                        {% if records %}
+                            {% for rec in records %}
+                                <tr>
+                                    <td class="text-secondary small">{{ loop.index }}</td>
+                                    <td class="fw-semibold text-dark">
+                                        <i class="bi bi-person-circle text-primary me-2"></i>{{ rec.name }}
+                                    </td>
+                                    <td class="text-secondary">{{ rec.date }}</td>
+                                    <td class="text-secondary font-monospace">{{ rec.time }}</td>
+                                    <td>
+                                        <span class="badge bg-success-subtle text-success px-2 py-1 rounded-pill">
+                                            <i class="bi bi-check-circle me-1"></i>Present
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr id="emptyRow">
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="bi bi-journal-x fs-1 d-block mb-2"></i>
+                                    No attendance records recorded yet.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Live Search & CSV Export Script -->
+    <script>
+        const searchInput = document.getElementById('tableSearchInput');
+        const tableBody = document.getElementById('attendanceTableBody');
+        const countDisplay = document.getElementById('filteredRowCount');
+
+        if (searchInput && tableBody) {
+            searchInput.addEventListener('keyup', function() {
+                const query = this.value.toLowerCase().trim();
+                const rows = tableBody.getElementsByTagName('tr');
+                let visibleCount = 0;
+
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (row.id === 'emptyRow') continue;
+
+                    const rowText = row.textContent.toLowerCase();
+                    if (rowText.includes(query)) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+                countDisplay.textContent = visibleCount;
+            });
+        }
+
+        // Export table to CSV
+        function exportTableToCSV(filename) {
+            const rows = document.querySelectorAll("#attendanceTable tr");
+            let csvContent = "";
+
+            rows.forEach(row => {
+                if (row.style.display !== 'none' && row.id !== 'emptyRow') {
+                    const cols = row.querySelectorAll("th, td");
+                    const rowData = [];
+                    cols.forEach((col, idx) => {
+                        // Skip serial and status badge column for raw data if desired, or export Name, Date, Time
+                        if (idx >= 1 && idx <= 3) {
+                            rowData.push(`"${col.textContent.trim().replace(/"/g, '""')}"`);
+                        }
+                    });
+                    if (rowData.length > 0) {
+                        csvContent += rowData.join(",") + "\r\n";
+                    }
+                }
+            });
+
+            // If header was included, adjust:
+            if (!csvContent.startsWith('"Student Name"')) {
+                csvContent = "Name,Date,Time\r\n" + csvContent;
+            }
+
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+Flask
+gunicorn
+numpy
+opencv-python-headless
+face-recognition
+Pillow
